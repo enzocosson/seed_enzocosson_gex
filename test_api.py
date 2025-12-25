@@ -4,31 +4,38 @@ from config import API_KEY, BASE_URL
 
 def test_endpoint(ticker, endpoint_type):
     """Test d'un endpoint"""
-    endpoints = {
-        'chain': f"{BASE_URL}/{ticker}/classic/chain?key={API_KEY}",
-        'major': f"{BASE_URL}/{ticker}/classic/major?key={API_KEY}",
-        'maxchange': f"{BASE_URL}/{ticker}/classic/maxchange?key={API_KEY}"
+    # Construire l'URL selon la documentation: /{TICKER}/classic/{AGGREGATION_PERIOD}
+    url = f"{BASE_URL}/{ticker}/classic/{endpoint_type}?key={API_KEY}"
+    headers = {
+        'User-Agent': 'GexTradingScript/1.0',
+        'Accept': 'application/json'
     }
-    
-    url = endpoints[endpoint_type]
     print(f"\n📡 Test {ticker} - {endpoint_type}")
     
     try:
-        response = requests.get(url, timeout=15)
-        response.raise_for_status()
+        response = requests.get(url, headers=headers, timeout=15)
+
+        # Afficher status et body pour debug quand ce n'est pas 200
+        print(f"   Status HTTP: {response.status_code}")
+        if not response.ok:
+            print(f"   Response body: {response.text!r}")
+            return False
+
         data = response.json()
-        
+
         print(f"   ✅ Status: {response.status_code}")
-        
-        if endpoint_type == 'chain' and 'strikes' in data:
-            print(f"   📈 Strikes: {len(data['strikes'])}")
-            print(f"   💰 Spot: {data.get('spot', 'N/A')}")
-            
-        elif endpoint_type == 'major':
-            print(f"   🎯 Zero Gamma: {data.get('zero_gamma', 'N/A')}")
-            print(f"   ⬆️  Support: {data.get('mpos_vol', 'N/A')}")
-            print(f"   ⬇️  Resistance: {data.get('mneg_vol', 'N/A')}")
-        
+        # Afficher les clés racines et informations utiles
+        if isinstance(data, dict):
+            keys = list(data.keys())
+            print(f"   JSON keys: {keys}")
+            if 'strikes' in data:
+                print(f"   📈 Strikes: {len(data['strikes'])}")
+            if 'spot' in data:
+                print(f"   💰 Spot: {data.get('spot')}")
+
+        else:
+            print(f"   Response JSON type: {type(data)}")
+
         return True
         
     except Exception as e:
@@ -48,12 +55,12 @@ def main():
     
     # Tests
     tests = [
-        ('SPX', 'chain'),
-        ('SPX', 'major'),
-        ('SPX', 'maxchange'),
-        ('NDX', 'chain'),
-        ('NDX', 'major'),
-        ('NDX', 'maxchange')
+        ('SPX', 'zero'),
+        ('SPX', 'full'),
+        ('SPX', 'one'),
+        ('NDX', 'zero'),
+        ('NDX', 'full'),
+        ('NDX', 'one')
     ]
     
     results = []
