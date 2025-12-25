@@ -30,8 +30,6 @@ OUTPUT_FILES = {
 }
 
 # Paramètres
-TOP_STRIKES_COUNT = 15  # Top N strikes par importance
+TOP_STRIKES_COUNT = 15
 API_TIMEOUT = 15
-
-# Aggregation par défaut (zero, one, full)
-DEFAULT_AGGREGATION = 'full'  # 'full' = toutes expirations 0-90j
+DEFAULT_AGGREGATION = 'full'
