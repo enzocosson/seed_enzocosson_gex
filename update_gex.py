@@ -1,11 +1,11 @@
 """
 Script de mise à jour des niveaux GEX pour TradingView
-Génère des CSV au format Pine Seeds (OHLCV + timestamp)
+Génère des CSV au format Pine Seeds avec historique de 30 jours
 SANS conversion - utilise les valeurs brutes de l'API
 """
 import requests
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import sys
 from config import *
 
@@ -213,25 +213,35 @@ def extract_levels(source_ticker, chain_data, majors_data):
 
 def convert_to_pine_seeds_format(levels, timestamp):
     """
-    Convertit les niveaux GEX au format Pine Seeds OHLCV
+    Convertit les niveaux GEX au format Pine Seeds OHLCV avec historique
     Format: date,open,high,low,close,volume (sans en-tête)
+    
+    IMPORTANT: Pine Seeds nécessite un historique de dates
+    On génère les 30 derniers jours avec les mêmes niveaux
     """
     pine_rows = []
-    date_str = timestamp.strftime('%Y%m%dT')
     
-    for level in levels:
-        strike = level['strike']
-        importance = level['importance']
+    # Générer un historique de 30 jours
+    # Cela permet à Pine Seeds de charger les données correctement
+    for days_back in range(30, -1, -1):  # De 30 jours en arrière à aujourd'hui
+        historical_date = timestamp - timedelta(days=days_back)
+        date_str = historical_date.strftime('%Y%m%dT')
         
-        pine_rows.append({
-            'date': date_str,
-            'open': strike,
-            'high': strike,
-            'low': strike,
-            'close': strike,
-            'volume': importance
-        })
+        # Ajouter tous les niveaux pour cette date
+        for level in levels:
+            strike = level['strike']
+            importance = level['importance']
+            
+            pine_rows.append({
+                'date': date_str,
+                'open': strike,
+                'high': strike,
+                'low': strike,
+                'close': strike,
+                'volume': importance
+            })
     
+    log(f"   📅 Historique généré: {len(pine_rows)} lignes sur 31 jours")
     return pine_rows
 
 
@@ -274,7 +284,9 @@ def main():
                 df_levels = df_levels.sort_values(['importance', 'strike'], ascending=[False, True])
                 df_levels = df_levels.drop_duplicates(subset=['strike'], keep='first')
                 
-                # Convertir au format Pine Seeds
+                log(f"   🔧 {len(df_levels)} niveaux uniques après déduplication")
+                
+                # Convertir au format Pine Seeds avec historique
                 pine_data = convert_to_pine_seeds_format(
                     df_levels.to_dict('records'), 
                     timestamp
@@ -288,7 +300,7 @@ def main():
                 if 'OUTPUT_FILES' in globals() and target in OUTPUT_FILES:
                     output_file = OUTPUT_FILES[target]
                 
-                # Sauvegarder SANS en-tête
+                # Sauvegarder SANS en-tête (requis par Pine Seeds)
                 df_pine.to_csv(
                     output_file, 
                     index=False, 
@@ -297,11 +309,12 @@ def main():
                 )
                 
                 log(f"✅ Fichier Pine Seeds: {output_file} ({len(df_pine)} lignes)")
+                log(f"   Format: {len(df_levels)} niveaux × 31 jours = {len(df_pine)} lignes")
                 
-                # Sauvegarder version debug avec métadonnées
+                # Sauvegarder version debug avec métadonnées (1 ligne par niveau)
                 debug_file = output_file.replace('.csv', '_metadata.csv')
                 df_levels.to_csv(debug_file, index=False)
-                log(f"   Debug: {debug_file}")
+                log(f"   📝 Debug: {debug_file} ({len(df_levels)} niveaux)")
                 
                 success_count += 1
             else:
@@ -319,6 +332,7 @@ def main():
     
     log("\n" + "=" * 70)
     log(f"✅ TERMINÉ - {success_count}/{len(TICKERS)} succès")
+    log(f"📊 Fichiers générés avec historique de 31 jours")
     log("=" * 70)
     
     sys.exit(0 if success_count > 0 else 1)
