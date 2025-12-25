@@ -5,6 +5,9 @@ on:
     - cron: "*/5 14-21 * * 1-5"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   update-gex:
     runs-on: ubuntu-latest
@@ -12,6 +15,9 @@ jobs:
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
+        with:
+          # ensure the token persists for later pushes
+          persist-credentials: true
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
@@ -31,3 +37,5 @@ jobs:
         with:
           commit_message: "chore: Update GEX data [auto]"
           file_pattern: "*.csv *.txt *.pine"
+          # pass the token explicitly (uses the built-in GITHUB_TOKEN)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
